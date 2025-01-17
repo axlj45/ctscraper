@@ -17,6 +17,14 @@ const fs = require('fs');
     // Read the existing data
     const rawData = fs.readFileSync(path);
     allRows = JSON.parse(rawData);
+    // Find the record with the earliest fileDate
+    const earliestRecord = allRows.reduce((earliest, current) => {
+      return new Date(current.fileDate) < new Date(earliest.fileDate) ? current : earliest;
+    }, allRows[0]);
+
+    console.log('Total Records:', allRows.length);
+    console.log('Earliest Record:', earliestRecord);
+
   } else {
     // Create an empty data.json file
     fs.writeFileSync(path, JSON.stringify([]));
@@ -125,6 +133,7 @@ const fs = require('fs');
 
   // We’ll keep looping until “Next” is unavailable (disabled) or doesn’t exist.
   while (true && !endPagination) {
+    console.log('Scraping page:', currentPageNum);
     // Scrape data from current page
     const rows = await scrapeCurrentTable();
 
@@ -172,8 +181,26 @@ const fs = require('fs');
     //   currentPageNum
     // );
   }
+  // Normalize Unicode characters for all string data
+  allRows = allRows.map(row => {
+    Object.keys(row).forEach(key => {
+      if (typeof row[key] === 'string') {
+        row[key] = row[key].normalize('NFC');
+      }
+    });
+    return row;
+  });
 
-  fs.writeFileSync(path, JSON.stringify(allRows, null, 2));
+  fs.writeFileSync(path, JSON.stringify(allRows, null, 2), 'utf-8');
+  // Find the record with the latest fileDate
+  const latestRecord = allRows.reduce((latest, current) => {
+    return new Date(current.fileDate) > new Date(latest.fileDate) ? current : latest;
+  }, allRows[0]);
+
+  console.log('Stopped on page:', currentPageNum);
+  console.log('Total Records:', allRows.length);
+  console.log('Latest Record:', latestRecord);
+
 
   // Close the browser
   await browser.close();
